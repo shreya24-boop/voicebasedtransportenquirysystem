@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Based Transport Enquiry System</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .voice-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        #output {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 100px;
+            margin-top: 20px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .status {
+            font-style: italic;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Voice-Based Transport Enquiry System</h1>
+
+        <div id="login-section">
+            <h2>Voice Login</h2>
+            <div class="voice-controls">
+                <button id="start-login-btn">Start Voice Login</button>
+                <p class="status" id="login-status">Press the button and speak your username</p>
+                <div id="login-output" class="hidden">
+                    <p>Welcome, <span id="username-display"></span>!</p>
+                    <button id="proceed-btn">Proceed to Transport System</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="main-system" class="hidden">
+            <h2>Transport Enquiry System</h2>
+            <div class="voice-controls">
+                <button id="listen-btn">Start Listening</button>
+                <p class="status" id="command-status">Press the button and speak your command</p>
+                <div id="command-options">
+                    <p>Try saying:</p>
+                    <ul>
+                        <li>"Search transport from [origin] to [destination]"</li>
+                        <li>"Book ticket for route [route number]"</li>
+                        <li>"Make payment for booking [booking number]"</li>
+                        <li>"Cancel my booking"</li>
+                    </ul>
+                </div>
+            </div>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <script>
+        // Voice recognition setup
+        const startLoginBtn = document.getElementById('start-login-btn');
+        const loginStatus = document.getElementById('login-status');
+        const loginOutput = document.getElementById('login-output');
+        const usernameDisplay = document.getElementById('username-display');
+        const proceedBtn = document.getElementById('proceed-btn');
+        const mainSystem = document.getElementById('main-system');
+        const listenBtn = document.getElementById('listen-btn');
+        const commandStatus = document.getElementById('command-status');
+        const outputDiv = document.getElementById('output');
+
+        let recognition;
+        let currentUser = null;
+
+        // Check for browser support
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+        } else {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            // Login recognition
+            startLoginBtn.addEventListener('click', () => {
+                loginStatus.textContent = 'Listening... Speak your username now';
+                recognition.start();
+
+                recognition.onresult = (event) => {
+                    const spokenText = event.results[0][0].transcript.trim();
+                    loginStatus.textContent = `You said: "${spokenText}"`;
+
+                    // Simulate voiceprint verification (in real app, this would call backend)
+                    setTimeout(() => {
+                        verifyVoiceLogin(spokenText);
+                    }, 1000);
+                };
+
+                recognition.onerror = (event) => {
+                    loginStatus.textContent = `Error occurred: ${event.error}`;
+                };
+            });
+
+            // Main system recognition
+            listenBtn.addEventListener('click', () => {
+                commandStatus.textContent = 'Listening... Speak your command now';
+                recognition.start();
+
+                recognition.onresult = (event) => {
+                    const command = event.results[0][0].transcript.trim();
+                    commandStatus.textContent = `You said: "${command}"`;
+                    processCommand(command);
+                };
+
+                recognition.onerror = (event) => {
+                    commandStatus.textContent = `Error occurred: ${event.error}`;
+                };
+            });
+        }
+
+        // Proceed to main system
+        proceedBtn.addEventListener('click', () => {
+            document.getElementById('login-section').classList.add('hidden');
+            mainSystem.classList.remove('hidden');
+            speak("Welcome to the transport enquiry system. How can I help you today?");
+        });
+
+        // Simulate voice login verification
+        function verifyVoiceLogin(username) {
+            // In a real app, this would call the backend to verify voiceprint
+            fetch('/api/voice-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentUser = data.user;
+                        usernameDisplay.textContent = currentUser.full_name;
+                        loginOutput.classList.remove('hidden');
+                        speak(`Welcome ${currentUser.full_name}. Voice login successful. Please press the proceed button to continue.`);
+                    } else {
+                        loginStatus.textContent = 'Login failed. Please try again.';
+                        speak('Sorry, we could not verify your voice. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // For demo purposes, we'll simulate a successful login
+                    currentUser = {
+                        user_id: 1,
+                        username: username.toLowerCase(),
+                        full_name: username.charAt(0).toUpperCase() + username.slice(1),
+                        email: `${username.toLowerCase()}@example.com`
+                    };
+                    usernameDisplay.textContent = currentUser.full_name;
+                    loginOutput.classList.remove('hidden');
+                    speak(`Welcome ${currentUser.full_name}. Voice login successful. Please press the proceed button to continue.`);
+                });
+        }
+
+        // Process voice commands in main system
+        function processCommand(command) {
+            outputDiv.innerHTML += `<p><strong>You:</strong> ${command}</p>`;
+
+            // Simple command processing (in real app, this would use NLP)
+            const lowerCmd = command.toLowerCase();
+
+            if (lowerCmd.includes('search') && (lowerCmd.includes('from') || lowerCmd.includes('to'))) {
+                handleTransportSearch(command);
+            } else if (lowerCmd.includes('book') || lowerCmd.includes('ticket')) {
+                handleTicketBooking(command);
+            } else if (lowerCmd.includes('payment') || lowerCmd.includes('pay')) {
+                handlePayment(command);
+            } else if (lowerCmd.includes('help')) {
+                showHelp();
+            } else {
+                const response = "I didn't understand that. Please try saying 'search transport from X to Y', 'book ticket', or 'make payment'.";
+                outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                speak(response);
+            }
+        }
+
+        function handleTransportSearch(command) {
+            // Extract origin and destination (simplified for demo)
+            let origin, destination;
+
+            if (command.includes('from') && command.includes('to')) {
+                origin = command.split('from')[1].split('to')[0].trim();
+                destination = command.split('to')[1].trim();
+            } else if (command.includes('to')) {
+                const parts = command.split('to');
+                origin = parts[0].replace('search transport', '').replace('from', '').trim();
+                destination = parts[1].trim();
+            }
+
+            if (!origin || !destination) {
+                const response = "Please specify both origin and destination, for example: 'search transport from Mumbai to Delhi'";
+                outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                speak(response);
+                return;
+            }
+
+            // In real app, this would call the backend
+            fetch('/api/search-transport', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        origin: origin,
+                        destination: destination,
+                        user_id: currentUser.user_id
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.routes.length > 0) {
+                        let responseText = `Found ${data.routes.length} transport options from ${origin} to ${destination}:`;
+                        let htmlResponse = `<p><strong>System:</strong> ${responseText}</p><ul>`;
+
+                        data.routes.forEach((route, index) => {
+                            responseText += ` Option ${index + 1}: ${route.mode_name} departing at ${route.departure_time} arriving at ${route.arrival_time}. Price is ${route.price}.`;
+                            htmlResponse += `<li>Option ${index + 1}: ${route.mode_name} (${route.departure_time} - ${route.arrival_time}) - ₹${route.price}</li>`;
+                        });
+
+                        responseText += " To book a ticket, say 'book ticket for route' followed by the option number.";
+                        htmlResponse += `</ul><p>To book a ticket, say "book ticket for route" followed by the option number.</p>`;
+
+                        outputDiv.innerHTML += htmlResponse;
+                        speak(responseText);
+                    } else {
+                        const response = `Sorry, no transport options found from ${origin} to ${destination}. Please try different locations.`;
+                        outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                        speak(response);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // For demo purposes, we'll simulate some results
+                    const demoRoutes = [{
+                        route_id: 1,
+                        mode_name: "Bus",
+                        departure_time: "08:00 AM",
+                        arrival_time: "02:00 PM",
+                        price: 500
+                    }, {
+                        route_id: 2,
+                        mode_name: "Train",
+                        departure_time: "10:30 AM",
+                        arrival_time: "04:15 PM",
+                        price: 350
+                    }];
+
+                    let responseText = `Found ${demoRoutes.length} transport options from ${origin} to ${destination}:`;
+                    let htmlResponse = `<p><strong>System:</strong> ${responseText}</p><ul>`;
+
+                    demoRoutes.forEach((route, index) => {
+                        responseText += ` Option ${index + 1}: ${route.mode_name} departing at ${route.departure_time} arriving at ${route.arrival_time}. Price is ${route.price}.`;
+                        htmlResponse += `<li>Option ${index + 1}: ${route.mode_name} (${route.departure_time} - ${route.arrival_time}) - ₹${route.price}</li>`;
+                    });
+
+                    responseText += " To book a ticket, say 'book ticket for route' followed by the option number.";
+                    htmlResponse += `</ul><p>To book a ticket, say "book ticket for route" followed by the option number.</p>`;
+
+                    outputDiv.innerHTML += htmlResponse;
+                    speak(responseText);
+                });
+        }
+
+        function handleTicketBooking(command) {
+            // Extract route number (simplified for demo)
+            let routeNumber = null;
+
+            if (command.includes('route')) {
+                const parts = command.split('route');
+                if (parts.length > 1) {
+                    routeNumber = parseInt(parts[1].trim());
+                }
+            } else {
+                // Try to find a number in the command
+                const match = command.match(/\d+/);
+                if (match) {
+                    routeNumber = parseInt(match[0]);
+                }
+            }
+
+            if (!routeNumber || isNaN(routeNumber)) {
+                const response = "Please specify which route you want to book by saying 'book ticket for route' followed by the option number.";
+                outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                speak(response);
+                return;
+            }
+
+            // In real app, this would call the backend with the actual route ID
+            fetch('/api/book-ticket', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        route_id: routeNumber,
+                        user_id: currentUser.user_id,
+                        travel_date: new Date().toISOString().split('T')[0] // Today's date
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const response = `Your booking for route ${routeNumber} has been created. Your booking reference is ${data.booking_id}. The amount to pay is ${data.amount}. Say 'make payment' to proceed with payment.`;
+                        outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                        speak(response);
+                    } else {
+                        const response = `Sorry, we couldn't process your booking for route ${routeNumber}. ${data.message || 'Please try again later.'}`;
+                        outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                        speak(response);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // For demo purposes, we'll simulate a successful booking
+                    const bookingId = Math.floor(Math.random() * 9000) + 1000;
+                    const amount = 500; // Assuming fixed amount for demo
+
+                    const response = `Your booking for route ${routeNumber} has been created. Your booking reference is ${bookingId}. The amount to pay is ${amount}. Say 'make payment' to proceed with payment.`;
+                    outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                    speak(response);
+                });
+        }
+
+        function handlePayment(command) {
+            // In real app, this would check for pending payments for the user
+            fetch('/api/process-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        amount: 500, // Would come from backend in real app
+                        payment_method: "voice_confirmation"
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const response = `Payment successful. Your transaction ID is ${data.transaction_id}. Thank you for using our service. Your ticket has been confirmed.`;
+                        outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                        speak(response);
+                    } else {
+                        const response = `Payment failed. ${data.message || 'Please try again later.'}`;
+                        outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                        speak(response);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // For demo purposes, we'll simulate a successful payment
+                    const transactionId = 'TXN' + Math.floor(Math.random() * 1000000);
+
+                    const response = `Payment successful. Your transaction ID is ${transactionId}. Thank you for using our service. Your ticket has been confirmed.`;
+                    outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+                    speak(response);
+                });
+        }
+
+        function showHelp() {
+            const response = "You can say: 'search transport from X to Y' to find transport options, 'book ticket for route Z' to make a booking, or 'make payment' to pay for your booking.";
+            outputDiv.innerHTML += `<p><strong>System:</strong> ${response}</p>`;
+            speak(response);
+        }
+
+        // Text-to-speech function
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.log('Text-to-speech not supported in this browser.');
+            }
+        }
+    </script>
+</body>
+
+</html>
